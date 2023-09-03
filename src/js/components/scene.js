@@ -1,4 +1,4 @@
-import {
+ import {
   Color,
   WebGLRenderer,
   Scene,
@@ -7,6 +7,7 @@ import {
   SphereGeometry,
   MeshMatcapMaterial,
   AxesHelper,
+  MeshPhysicalMaterial,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
@@ -39,7 +40,11 @@ export default class MainScene {
     const assets = [
       {
         name: 'matcap',
-        texture: './img/matcap.png',
+        texture: './img/matcap.png', 
+      },
+      {
+        name: 'clouds',
+        texture: './img/clouds.jpg', 
       },
     ]
 
@@ -78,7 +83,9 @@ export default class MainScene {
    */
   setScene() {
     this.#scene = new Scene()
-    this.#scene.background = new Color(0xffffff)
+    // this.#scene.background = new Color(0xffffff)
+    const texture = LoaderManager.get('clouds').texture
+    this.#scene.background = texture
   }
 
   /**
@@ -130,7 +137,7 @@ export default class MainScene {
    */
   setSphere() {
     const geometry = new SphereGeometry(1, 32, 32)
-    const material = new MeshMatcapMaterial({ matcap: LoaderManager.assets['matcap'].texture })
+    const material = new MeshPhysicalMaterial()
 
     this.#mesh = new Mesh(geometry, material)
     this.#scene.add(this.#mesh)
