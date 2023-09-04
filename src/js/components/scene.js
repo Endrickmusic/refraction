@@ -8,6 +8,7 @@
   MeshMatcapMaterial,
   AxesHelper,
   MeshPhysicalMaterial,
+  IcosahedronGeometry,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
@@ -28,6 +29,9 @@ export default class MainScene {
     y: 0,
     showTitle: true,
   }
+  #refractionMaterial
+  #sphereMesh
+  #icoMesh
 
   constructor() {
     this.#canvas = document.querySelector('.scene')
@@ -56,9 +60,11 @@ export default class MainScene {
     this.setRender()
     this.setCamera()
     this.setControls()
-    this.setAxesHelper()
+    // this.setAxesHelper()
 
+    this.setRefractionMaterial()
     this.setSphere()
+    this.setIco()
 
     this.handleResize()
 
@@ -124,23 +130,36 @@ export default class MainScene {
    * Axes Helper
    * https://threejs.org/docs/?q=Axesh#api/en/helpers/AxesHelper
    */
-  setAxesHelper() {
-    const axesHelper = new AxesHelper(3)
-    this.#scene.add(axesHelper)
-  }
+  // setAxesHelper() {
+  //   const axesHelper = new AxesHelper(3)
+  //   this.#scene.add(axesHelper)
+  // }
 
+setRefractionMaterial(){
+  this.#refractionMaterial = new MeshPhysicalMaterial({ 
+        transmission:1, 
+        roughness: 0,
+        thickness: 1.5
+      })
+    }
   /**
    * Create a SphereGeometry
    * https://threejs.org/docs/?q=box#api/en/geometries/SphereGeometry
    * with a Basic material
    * https://threejs.org/docs/?q=mesh#api/en/materials/MeshBasicMaterial
    */
-  setSphere() {
+  setSphere(){
     const geometry = new SphereGeometry(1, 32, 32)
-    const material = new MeshPhysicalMaterial()
+    this.#sphereMesh = new Mesh(geometry, this.#refractionMaterial)
+    this.#sphereMesh.position.x = -2
+    this.#scene.add(this.#sphereMesh)
+  }
 
-    this.#mesh = new Mesh(geometry, material)
-    this.#scene.add(this.#mesh)
+  setIco(){
+    const geometry = new IcosahedronGeometry(1)
+    this.#icoMesh = new Mesh(geometry, this.#refractionMaterial)
+    this.#icoMesh.position.x = 2
+    this.#scene.add(this.#icoMesh)
   }
 
   /**
