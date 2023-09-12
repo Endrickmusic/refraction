@@ -9,8 +9,12 @@
   AxesHelper,
   MeshPhysicalMaterial,
   IcosahedronGeometry,
+  EquirectangularReflectionMapping,
+  RepeatWrapping,
+  Vector2,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader'
 import Stats from 'stats-js'
 import LoaderManager from '@/js/managers/LoaderManager'
 import GUI from 'lil-gui'
@@ -26,8 +30,15 @@ export default class MainScene {
   #height
   #mesh
   #guiObj = {
-    y: 0,
-    showTitle: true,
+    // y: 0,
+    transmission: 1.0,
+    roughness: 0.05,
+    thickness: 0.5,
+    speed: 0.01,
+    clearcoat: 0.0,
+    iridescence: 0.0,
+    normalScaleX : 0.0,
+    normalScaleY : 0.0,
   }
   #refractionMaterial
   #sphereMesh
@@ -50,9 +61,23 @@ export default class MainScene {
         name: 'clouds',
         texture: './img/clouds.jpg', 
       },
+      {
+        name: 'normal',
+        texture: './img/normal.jpg', 
+      },
     ]
+    
 
     await LoaderManager.load(assets)
+
+    const loadRGBEPromise = (src) => 
+      new Promise ((resolve) => {
+          new RGBELoader().load(src, (texture) => resolve(texture))
+        })
+      
+     // load HDR envmap
+    this.hdrEquirect = await loadRGBEPromise('./img/envmap.hdr')
+    this.hdrEquirect.mapping = EquirectangularReflectionMapping
 
     this.setStats()
     this.setGUI()
@@ -108,9 +133,9 @@ export default class MainScene {
     const farPlane = 10000
 
     this.#camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
-    this.#camera.position.y = 5
-    this.#camera.position.x = 5
-    this.#camera.position.z = 5
+    this.#camera.position.y = 0
+    this.#camera.position.x = 0
+    this.#camera.position.z = -7
     this.#camera.lookAt(0, 0, 0)
 
     this.#scene.add(this.#camera)
@@ -136,10 +161,18 @@ export default class MainScene {
   // }
 
 setRefractionMaterial(){
+  const normalTexture = LoaderManager.get('normal').texture
+  normalTexture.wrapS = normalTexture.wrapT = RepeatWrapping
   this.#refractionMaterial = new MeshPhysicalMaterial({ 
-        transmission:1, 
-        roughness: 0,
-        thickness: 1.5
+        transmission: this.#guiObj.transmission, 
+        roughness: this.#guiObj.roughness,
+        thickness: this.#guiObj.thickness,
+        envMap: this.hdrEquirect,
+        normalMap: normalTexture,
+        clearcoatMap: normalTexture,
+        iridescence: this.#guiObj.iridescence,
+        clearcoat: this.#guiObj.clearcoat,
+        normalScale: new Vector2 (.2, .2),
       })
     }
   /**
@@ -151,14 +184,14 @@ setRefractionMaterial(){
   setSphere(){
     const geometry = new SphereGeometry(1, 32, 32)
     this.#sphereMesh = new Mesh(geometry, this.#refractionMaterial)
-    this.#sphereMesh.position.x = -2
+    this.#sphereMesh.position.x = 1.2
     this.#scene.add(this.#sphereMesh)
   }
 
   setIco(){
     const geometry = new IcosahedronGeometry(1)
     this.#icoMesh = new Mesh(geometry, this.#refractionMaterial)
-    this.#icoMesh.position.x = 2
+    this.#icoMesh.position.x = -1.2
     this.#scene.add(this.#icoMesh)
   }
 
@@ -175,13 +208,26 @@ setRefractionMaterial(){
     const titleEl = document.querySelector('.main-title')
 
     const handleChange = () => {
-      this.#mesh.position.y = this.#guiObj.y
-      titleEl.style.display = this.#guiObj.showTitle ? 'block' : 'none'
+      this.#refractionMaterial.transmission = this.#guiObj.transmission
+      this.#refractionMaterial.roughness = this.#guiObj.roughness
+      this.#refractionMaterial.thickness = this.#guiObj.thickness
+      this.#refractionMaterial.clearcoat = this.#guiObj.clearcoat
+      this.#refractionMaterial.iridescence = this.#guiObj.iridescence
+      this.#refractionMaterial.normalScale = new Vector2 (this.#guiObj.normalScaleX, this.#guiObj.normalScaleY)
     }
 
+
     const gui = new GUI()
-    gui.add(this.#guiObj, 'y', -3, 3).onChange(handleChange)
-    gui.add(this.#guiObj, 'showTitle').name('show title').onChange(handleChange)
+    // gui.add(this.#guiObj, 'y', -3, 3).onChange(handleChange)
+    // gui.add(this.#guiObj, 'showTitle').name('show title').onChange(handleChange)
+    gui.add(this.#guiObj, 'transmission', 0, 1).name('transmission').onChange(handleChange)
+    gui.add(this.#guiObj, 'roughness', 0, 1).name('roughness').onChange(handleChange)
+    gui.add(this.#guiObj, 'thickness', 0, 1).name('thickness').onChange(handleChange)
+    gui.add(this.#guiObj, 'speed', -0.03, 0.03).name('speed').onChange(handleChange)
+    gui.add(this.#guiObj, 'clearcoat', 0, 1).name('clearcoat').onChange(handleChange)
+    gui.add(this.#guiObj, 'iridescence', 0, 1).name('iridescence').onChange(handleChange)
+    gui.add(this.#guiObj, 'normalScaleX', 0, 1).name('Normal Scale X').onChange(handleChange)
+    gui.add(this.#guiObj, 'normalScaleY', 0, 1).name('Normal Scale Y').onChange(handleChange)
   }
   /**
    * List of events
@@ -205,6 +251,9 @@ setRefractionMaterial(){
 
     if (this.#controls) this.#controls.update() // for damping
     this.#renderer.render(this.#scene, this.#camera)
+
+    this.#icoMesh.rotation.y += this.#guiObj.speed
+    this.#sphereMesh.rotation.y += -this.#guiObj.speed
 
     this.#stats.end()
     this.raf = window.requestAnimationFrame(this.draw)
